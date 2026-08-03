@@ -1,0 +1,67 @@
+{
+  "name": "torrent-resolve",
+  "version": "1.0.0",
+  "description": "Resolve torrent metadata (name, size, files, trackers, and more) from a magnet URI, infohash, or .torrent URL.",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AMoo-Miki/torrent-resolve.git"
+  },
+  "homepage": "https://github.com/AMoo-Miki/torrent-resolve#readme",
+  "bugs": {
+    "url": "https://github.com/AMoo-Miki/torrent-resolve/issues"
+  },
+  "publishConfig": {
+    "provenance": true
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "main": "src/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./src/index.js"
+    }
+  },
+  "files": [
+    "src",
+    "dist"
+  ],
+  "scripts": {
+    "test": "npm run coverage:unit && npm run coverage:integ && npm run coverage:report",
+    "test:unit": "node --test \"test/*.test.js\"",
+    "test:integ": "node --test \"test/integ/*.test.js\"",
+    "refresh-integ-fixtures": "node scripts/refresh-integ-fixtures.js",
+    "coverage:unit": "c8 --temp-directory coverage/tmp --clean --reporter=none npm run test:unit",
+    "coverage:integ": "c8 --temp-directory coverage/tmp --no-clean --reporter=none npm run test:integ",
+    "coverage:report": "c8 report --temp-directory coverage/tmp --all --src src --reporter=text --reporter=lcov --reporter=html --reports-dir coverage/report",
+    "lint": "biome check .",
+    "lint:fix": "biome check . --write",
+    "format": "biome format . --write",
+    "clean": "node scripts/clean.js",
+    "prebuild": "npm run clean",
+    "build": "tsc",
+    "prepare": "npm run build && node scripts/install-hooks.js"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "npm run lint && npm run build && npm test",
+    "commit-msg": "node scripts/check-commit-msg.js \"$1\""
+  },
+  "dependencies": {
+    "bencode": "^4.0.1",
+    "bittorrent-dht": "^11.0.12",
+    "bittorrent-protocol": "^5.0.9",
+    "parse-torrent": "^11.0.24",
+    "ut_metadata": "^5.0.1"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.6",
+    "@types/node": "^22.20.1",
+    "c8": "^12.0.0",
+    "simple-git-hooks": "^2.13.1",
+    "typescript": "^7.0.2"
+  }
+}

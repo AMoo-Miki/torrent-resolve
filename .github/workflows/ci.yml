@@ -1,0 +1,40 @@
+# Gates on every push and pull request. Deliberately does NOT run the integ suite: it hits real
+# public trackers and a real DHT (always live, no mocked mode), so it would make CI depend on
+# third-party swarm health and would hammer strangers' trackers on every push. `npm test` here is
+# the unit suite (test:unit) only. Run integ locally with `npm run test:integ` before a release.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 22 is the floor declared in engines.node and 24 is current LTS. 26 is the current
+        # release line, included so a runtime change reaches us here rather than through a bug
+        # report after it becomes LTS. The APIs at stake are global fetch, AbortSignal.timeout,
+        # dgram and node:test.
+        node-version: ['22', '24', '26']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      - run: npm run build
+
+      - run: npm test

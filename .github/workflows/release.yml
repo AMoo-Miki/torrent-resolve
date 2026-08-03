@@ -1,0 +1,110 @@
+# release-please watches main, and keeps a "Release PR" open that bumps the version and writes
+# CHANGELOG.md from the conventional-commit subjects since the last release. Merging that PR is
+# the release decision: it tags, creates the GitHub Release, and only then does this workflow
+# publish to npm.
+#
+# The publish job lives here rather than in a separate workflow triggered by `release: published`,
+# and that is not a style preference. GitHub does not start workflow runs from events raised with
+# the default GITHUB_TOKEN, so a Release created by release-please would never trigger such a
+# workflow. It would fail silently: the release appears, nothing publishes, no error anywhere.
+# The alternative is handing release-please a personal access token so its events cascade, which
+# reintroduces exactly the long-lived credential that Trusted Publishing exists to remove.
+#
+# Because the publish happens here, THIS filename is what npm's Trusted Publisher configuration
+# must name (npmjs.com -> torrent-resolve -> Settings -> Trusted Publisher). Renaming this file
+# breaks publishing until that configuration is updated to match.
+#
+# ---------------------------------------------------------------------------------------------
+# ONE-TIME BOOTSTRAP. Already done? Ignore all of this; the flow above is fully automatic.
+#
+# The first publish cannot go through this workflow, and no amount of fixing the workflow will
+# change that. npm refuses to configure a Trusted Publisher for a package that does not exist
+# yet, and the only credential this workflow has IS that Trusted Publisher. So the package has
+# to exist before the automation can ever authenticate. Merging a Release PR before that is set
+# up runs every gate, tags, cuts the GitHub Release, and then fails on `npm publish` with no
+# credentials.
+#
+#   1. Enable Settings -> Actions -> General -> Workflow permissions ->
+#      "Allow GitHub Actions to create and approve pull requests". Without it release-please
+#      cannot open its Release PR and the job fails on a permissions error.
+#   2. Locally, bump package.json to the first release version and commit it with a conventional
+#      message carrying a matching `Release-As:` footer. The commit-msg hook requires the version,
+#      the footer, and any breaking-change marker to agree.
+#   3. `npm login` then `npm publish` from that commit. This is the manual step that creates the
+#      package on the registry. It is the only publish anyone runs by hand.
+#   4. Configure the Trusted Publisher on npmjs.com: this repo, and the workflow filename above.
+#   5. Tag that commit and set .release-please-manifest.json to the version just published, so
+#      release-please's idea of the current version matches the registry. Skip this and its next
+#      PR proposes the version that is already live, and the publish fails on EPUBLISHCONFLICT.
+#
+# From the next version onward nothing here is manual: land conventional commits, merge the
+# Release PR when you want to ship, and this workflow does the rest.
+# ---------------------------------------------------------------------------------------------
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create tags and the GitHub Release
+      pull-requests: write # create and update the Release PR
+    outputs:
+      released: ${{ steps.release.outputs.release_created }}
+      tag: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - uses: googleapis/release-please-action@v5
+        id: release
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  publish:
+    needs: release-please
+    if: needs.release-please.outputs.released == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # npm Trusted Publishing (OIDC); no NPM_TOKEN anywhere
+      contents: read
+    steps:
+      # Check out the tag release-please just created, so what gets published is exactly what was
+      # tagged rather than whatever main happens to look like by the time this runs.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release-please.outputs.tag }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      # Trusted Publishing needs npm >= 11.5.1, and the npm bundled with a given Node release can
+      # lag behind that. Installing it explicitly rather than assuming.
+      - run: npm install -g npm@latest
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      - run: npm run build
+
+      - run: npm test
+
+      # release-please writes both, so a mismatch means something outside that flow moved one of
+      # them. Cheap to check, and the failure mode it prevents is publishing a version nobody tagged.
+      - name: Verify the tag matches package.json
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG="$(node -p "require('./package.json').version")"
+          if [ "$TAG" != "$PKG" ]; then
+            echo "Release tag $GITHUB_REF_NAME does not match package.json version $PKG"
+            exit 1
+          fi
+
+      - run: npm publish

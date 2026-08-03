@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.scratch/
+coverage/
+
+# JetBrains IDE state — local paths, personal server nicknames, per-user layout
+.idea/
+*.iml
