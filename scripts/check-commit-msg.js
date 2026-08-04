@@ -12,6 +12,13 @@ const MAX_SUBJECT_LENGTH = 100;
 // Written by git itself, or by a rebase replaying work that was already checked once.
 const GIT_GENERATED = /^(Merge |Revert "|fixup! |squash! |amend! )/;
 
+// release-please's own release commit, e.g. "chore(main): release 1.2.0". Bumping the version is
+// exactly what that commit is for, so it is exempt from the version guard below. Merging the
+// Release PR through GitHub never reaches this hook at all, since GitHub builds that commit
+// server-side; squash-merging the same PR locally does, and would otherwise be rejected for
+// doing the one thing it is supposed to do.
+const RELEASE_COMMIT = /^chore(\([^)]*\))?: release (?:\S+ )?\d+\.\d+\.\d+(?:-[\w.]+)?$/;
+
 // git passes the path of the file holding the message. simple-git-hooks writes the configured
 // command into the hook verbatim without forwarding "$@", so package.json has to pass "$1"
 // through explicitly. Fail loudly rather than guessing at .git/COMMIT_EDITMSG, which is not
@@ -127,7 +134,7 @@ if (!HEADER.test(subject)) {
 // release anything; it just gives two sources of truth that drift, and release-please's next PR
 // overwrites whatever was typed. Use --no-verify for the one-time registry bootstrap documented
 // in .github/workflows/release.yml, which is the only time a human sets this by hand.
-if (versionChanged) {
+if (versionChanged && !RELEASE_COMMIT.test(subject)) {
   errors.push(
     `This commit changes the package.json version (${previousVersion} -> ${stagedVersion}).\n` +
       '    release-please owns that field and sets it in the Release PR. To release a specific\n' +
