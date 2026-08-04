@@ -220,6 +220,15 @@ reaching them without a release from us. That cost is real here — anyone using
 the types are `^22`. Types ahead of the runtime mislead the type checker into accepting APIs that
 crash for users on the version we claim to support.
 
+**Do not replace `src/tracker/` with `bittorrent-tracker`.** It is the obvious-looking
+simplification and it has been considered. Reaching its client-side announce logic also installs a
+full tracker server — WebRTC, WebSockets, SOCKS and a native compilation toolchain, none of which
+this library can use — and drags in `ip`, whose SSRF advisory has no fix available and which
+downstream scanners then report against anything depending on it. What we need is announce and a
+peer list: no scrape, no stats, no session model, no proxies. At that size, BEP 15 and BEP 3 are
+cheaper to implement than to depend on. Revisit only if upstream drops `ip` and splits the client
+from the server.
+
 ---
 
 ## Commit messages

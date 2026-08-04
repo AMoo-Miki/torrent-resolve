@@ -42,6 +42,60 @@ const d = await resolve(input, opts)
 await shutdownSharedDht()
 ```
 
+### What you get back
+
+Real output, from Sintel — the Blender Foundation's open movie.
+
+```js
+await resolveTorrentFile('https://webtorrent.io/torrents/sintel.torrent')
+```
+```js
+{
+  name: 'Sintel',
+  infoHash: '08ada5a7a6183aae1e09d831df6748d566095a10',
+  created: 2017-03-30T23:30:37.000Z,          // Date, or null if the file omits it
+  length: 129302391,
+  files: [
+    { path: 'Sintel/Sintel.de.srt', name: 'Sintel.de.srt', length: 1652, offset: 0 },
+    { path: 'Sintel/Sintel.mp4', name: 'Sintel.mp4', length: 129241752, offset: 7884 },
+    // ...9 more
+  ],
+  private: false,
+  trackers: [
+    'udp://tracker.leechers-paradise.org:6969',
+    'udp://tracker.coppersurfer.tk:6969',
+    // ...6 more, as embedded in the file
+  ]
+}
+```
+
+The same torrent as a magnet:
+
+```js
+await resolveMagnet('magnet:?xt=urn:btih:08ada5a7a6183aae1e09d831df6748d566095a10&dn=Sintel&tr=...')
+```
+```js
+{
+  name: 'Sintel',                              // from the verified info dict, not the dn param
+  infoHash: '08ada5a7a6183aae1e09d831df6748d566095a10',
+  length: 129302391,
+  files: [ /* identical to above */ ],
+  private: false,
+  trackers: [                                  // the merged, denylist-filtered list actually used
+    'udp://tracker.opentrackr.org:1337/announce',
+    'udp://tracker.torrent.eu.org:451/announce',
+    'udp://open.stealth.si:80/announce'
+  ]
+}
+```
+
+Note there is no `created` key at all, not a `null` one. Everything else matches the `.torrent`
+byte for byte, which is the point: the magnet's `dn` said `Sintel` and so does the result, but the
+result is the one that was checked.
+
+`files[].path` is always forward-slash separated, on every platform, matching the torrent itself
+rather than the host you happen to run on.
+
 ### Options for `resolveMagnet`, `resolveInfoHash` and `resolve`
 
 | option | default | |
@@ -150,25 +204,6 @@ publish.
 Type-checking the JSDoc under `strict` also keeps the annotations honest. It caught a real bug
 during development, where `opts.userAgent` was documented but never actually threaded through to
 the magnet path.
-
-## Supply chain
-
-Dependencies use caret ranges, following the usual rule of carets at 1.0 and above and exact pins
-below it. A published library's lockfile is never used by whoever installs it, so exact pins buy
-consumers nothing while blocking npm from deduplicating and stopping transitive security fixes
-from reaching them without a release here. Before any dependency is added or bumped, it's checked
-against the registry for being current, more than a few days old, and still maintained.
-
-Tracker announces are implemented here rather than taken from `bittorrent-tracker`. Reaching that
-package's client-side announce logic meant also installing a full tracker server: WebRTC,
-WebSockets, SOCKS, and a native compilation toolchain, none of which this library can use. It
-also depends on `ip`, which has an SSRF advisory (GHSA-2p57-rm9w-gvfp) that has no fix available.
-Not depending on it removes that advisory from the tree for everyone who installs this package,
-not just from this repo's own audit output.
-
-`src/tracker/` implements only what this library needs: announce, and read back a peer list. No
-scrape, no stats reporting, no session model, no proxy support, no WebSocket trackers. That's a
-small enough surface that BEP 15 and BEP 3 are easier to implement than to depend on.
 
 ## Testing
 
