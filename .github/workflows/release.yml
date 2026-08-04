@@ -99,14 +99,23 @@ jobs:
         with:
           ref: ${{ env.RELEASE_TAG }}
 
+      # Node 24, not 22, specifically because Trusted Publishing needs npm >= 11.5.1: Node 22
+      # bundles npm 10.9.8 and Node 24 bundles 11.17.0. Pinning 22 here previously forced an
+      # `npm install -g npm@latest` step to clear that floor, which fetched an unpinned version of
+      # npm at run time into the one job holding id-token: write — the npm publishing right.
+      # Taking the npm that ships with the runtime removes that moving part. The published package
+      # still supports Node 22; this only decides what does the publishing.
+      #
+      # package-manager-cache is disabled per npm's trusted-publishing guidance for release builds.
+      # It defaults to true and would currently no-op, since it only engages when package.json
+      # declares packageManager or devEngines — but adding either later would silently switch
+      # caching on in the release path, and this makes that a deliberate choice rather than a
+      # side effect.
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: '22'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
-
-      # Trusted Publishing needs npm >= 11.5.1, and the npm bundled with a given Node release can
-      # lag behind that. Installing it explicitly rather than assuming.
-      - run: npm install -g npm@latest
+          package-manager-cache: false
 
       - run: npm ci
 
