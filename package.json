@@ -1,6 +1,6 @@
 {
   "name": "torrent-resolve",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Resolve torrent metadata (name, size, files, trackers, and more) from a magnet URI, infohash, or .torrent URL.",
   "license": "MIT",
   "type": "module",
