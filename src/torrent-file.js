@@ -2,17 +2,10 @@ import parseTorrent from 'parse-torrent';
 import { assertHttpsUrl } from './validate.js';
 import { TorrentResolveError } from './errors.js';
 import { USER_AGENT } from './client-identity.js';
+import { normalizeFiles } from './file-list.js';
 
 const DEFAULT_MAX_BYTES = 4 * 1024 * 1024; // 4 MB — real-world .torrent files are near-always <1MB
 const DEFAULT_FETCH_TIMEOUT_MS = 30_000;
-
-/**
- * @typedef {Object} TorrentFile
- * @property {string} path
- * @property {string} name
- * @property {number} length
- * @property {number} offset
- */
 
 /**
  * @typedef {Object} TorrentFileInfo
@@ -20,7 +13,7 @@ const DEFAULT_FETCH_TIMEOUT_MS = 30_000;
  * @property {string} infoHash - lowercase 40-char hex
  * @property {Date|null} created
  * @property {number} length - total size in bytes
- * @property {TorrentFile[]} files
+ * @property {import('./file-list.js').TorrentFile[]} files
  * @property {boolean} private - BEP 27 flag
  * @property {string[]} trackers - the .torrent's own announce list, as embedded (no
  *   enrichment/denylist applies on this path — that's a resolveMagnet/resolveInfoHash concept)
@@ -58,7 +51,7 @@ export async function resolveTorrentFile(httpsUrl, opts = {}) {
     infoHash: parsed.infoHash,
     created: parsed.created ?? null,
     length: parsed.length,
-    files: parsed.files,
+    files: normalizeFiles(parsed.files),
     private: parsed.private ?? false,
     trackers: parsed.announce ?? [],
   };

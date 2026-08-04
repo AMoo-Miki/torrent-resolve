@@ -6,6 +6,7 @@ import { generatePeerId } from './client-identity.js';
 import { getSharedDht } from './shared-dht.js';
 import { PeerDiscovery } from './peer-discovery.js';
 import { fetchMetadataFromPeer } from './metadata-exchange.js';
+import { normalizeFiles } from './file-list.js';
 
 const DEFAULT_TIMEOUT_SECONDS = 600; // 10 minutes
 const PEER_TIMEOUT_MS = 8_000;
@@ -22,7 +23,7 @@ const defaultDeps = { getSharedDht, PeerDiscovery, fetchMetadataFromPeer };
  * @property {string} name - verified via BEP 9's sha1 check, NOT the magnet's untrusted `dn`
  * @property {string} infoHash - lowercase 40-char hex
  * @property {number} length - total size in bytes
- * @property {import('./torrent-file.js').TorrentFile[]} files
+ * @property {import('./file-list.js').TorrentFile[]} files
  * @property {boolean} private - BEP 27 flag. Only knowable after metadata arrives (it's inside
  *   the info dict, delivered alongside name/length/etc via BEP 9) — by definition too late to
  *   have skipped DHT/trackers for a private torrent, since discovering peers via DHT/trackers is
@@ -192,7 +193,7 @@ export async function resolveByInfoHash({ infoHash, magnetAnnounce, untrustedNam
     name: parsedResult.name,
     infoHash: parsedResult.infoHash,
     length: parsedResult.length,
-    files: parsedResult.files,
+    files: normalizeFiles(parsedResult.files),
     private: parsedResult.private ?? false,
     trackers: trackerList,
   };
